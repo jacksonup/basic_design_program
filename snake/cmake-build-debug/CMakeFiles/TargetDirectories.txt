@@ -1,0 +1,3 @@
+/Users/jackson/文件/3_工作/code/c/basic_design_program/snake/cmake-build-debug/CMakeFiles/snake.dir
+/Users/jackson/文件/3_工作/code/c/basic_design_program/snake/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/jackson/文件/3_工作/code/c/basic_design_program/snake/cmake-build-debug/CMakeFiles/rebuild_cache.dir
