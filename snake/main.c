@@ -1,7 +1,11 @@
 #include "snake.h"
 
+extern time_t obstacleTimeStamp;
+
+
 int main() {
     srand((unsigned int)time(0));      // 生成随机数种子
+    obstacleTimeStamp = time(NULL);
     int end = 1, result;
     while (end) {
         result = Menu();                           // 显示主菜单，并根据用户选择菜单选项决定游戏的执行

@@ -9,10 +9,13 @@
  /**
   * 全局变量定义
   */
-Snake snake;                  // 定义蛇结构体变量
-Food food;                    // 定义食物结构体变量
-char nowDirection = RIGHT;    // 当前蛇头方向
-char direction = RIGHT;       // 预期蛇头方向
+Snake snake;                            // 定义蛇结构体变量
+struct Food food;                       // 定义食物结构体变量
+Obstacle obstacle[MAX_OBSTACLE_NUM];    // 定义障碍结构体数组变量
+char nowDirection = RIGHT;              // 当前蛇头方向
+char direction = RIGHT;                 // 预期蛇头方向
+// 在global.c中声明全局变量
+time_t obstacleTimeStamp;
 
 /**
  * 主菜单函数
@@ -170,6 +173,8 @@ void InitMap() {
 
     // 生成食物
     PrintFood();
+    // 生成障碍物
+    PrintObstacle();
     // 得分说明
     GotoXY(50, 5);
     printf("当前得分：0");
@@ -185,6 +190,8 @@ void PrintFood() {
         // 设置随机的食物坐标位置
         food.x = rand() % (MAP_WIDTH - 2) + 1;
         food.y = rand() % (MAP_HEIGHT - 2) + 1;
+        // 生成随机的食物类型
+        food.type = rand() % 3 + 1;
         // 循环判断食物位置是否和蛇的位置重叠，如果重叠则需要重新设置食物位置
         for (int i = 0; i <= snake.length - 1; ++i) {
             if (snake.snakeNode[i].x == food.x && snake.snakeNode[i].y == food.y) {
@@ -192,9 +199,30 @@ void PrintFood() {
                 break;
             }
         }
+        // 循环判断食物位置是否和障碍物的位置重叠，如果重叠则需要重新设置食物位置
+        for (int i = 0; i <= MAX_OBSTACLE_NUM - 1; ++i) {
+            if (obstacle[i].x == food.x && obstacle[i].y == food.y) {
+                flag = 1;
+                break;
+            }
+        }
     }
     GotoXY(food.x, food.y);
-    printf("$");
+    // 类型为 1 的食物输出字符为 $
+    if (food.type == 1) {
+        printf("$");
+        food.grow = 1;
+    }
+    // 假设类型为 2 的食物输出字符为 @
+    else if (food.type == 2) {
+        printf("@");
+        food.grow = 2;
+    }
+    // 假设类型为 3 的食物输出字符为 &
+    else {
+        printf("&");
+        food.grow = 3;
+    }
 }
 
 /**
@@ -263,16 +291,18 @@ int MoveSnake() {
 
     // 判断是否吃到食物
     if (snake.snakeNode[0].x == food.x && snake.snakeNode[0].y == food.y) {
-        snake.length++;
+        snake.length += food.grow;
         flag = 1;
-        snake.snakeNode[snake.length - 1] = snakeTailNode;
+        for (int i = snake.length - food.grow; i < snake.length; ++i) {
+            snake.snakeNode[i] = snakeTailNode;
+        }
     }
 
     // 输出蛇此时的状态，若没有吃到食物，在原先蛇尾的地方输出一个空格，去掉原来的蛇尾
     if (flag) {
         PrintFood();
         GotoXY(50, 5);
-        printf("当前得分：%d", snake.length - 3);
+        printf("当前得分：%d   ", snake.length - 3);
     }
     else {
         GotoXY(snakeTailNode.x, snakeTailNode.y);
@@ -293,6 +323,13 @@ int MoveSnake() {
         return 0;
     }
 
+    // 随机刷新障碍物
+    if (IsPrintfObstacle()) {
+        // 重新生成障碍物
+        ClearObstacle();
+        PrintObstacle();
+    }
+
     SpeedControl();
     Sleep(snake.speed);
     return 1;
@@ -310,6 +347,14 @@ int IsCorrect() {
         snake.snakeNode[0].y == MAP_HEIGHT - 1) {
         return 0;
     }
+
+    // 判断是否碰到障碍物
+    for (int i = 0; i <= MAX_OBSTACLE_NUM - 1; i++) {
+        if (snake.snakeNode[0].x == obstacle[i].x && snake.snakeNode[0].y == obstacle[i].y) {
+            return 0;
+        }
+    }
+
     int cutIndex = -1; // 初始化为-1，表示不需要截断
     for (int i = 1; i < snake.length; i++) {
         if (snake.snakeNode[0].x == snake.snakeNode[i].x && snake.snakeNode[0].y == snake.snakeNode[i].y) {
@@ -335,7 +380,7 @@ int IsCorrect() {
         }
     }
     GotoXY(50, 5);
-    printf("当前得分：%d", snake.length - 3);
+    printf("当前得分：%d   ", snake.length - 3);
     return 1;
 }
 
@@ -373,3 +418,63 @@ void SpeedControl() {
         break;
     }
 }
+
+/**
+ * 生成障碍物函数
+ */
+void PrintObstacle() {
+    // 随机生成1-5个障碍物
+    int obstacleCount = rand() % 5 + 1;
+    int flag = 1;
+    while (obstacleCount > 0) {
+        flag = 1;
+        // 设置随机的障碍物坐标位置
+        obstacle[obstacleCount - 1].x = rand() % (MAP_WIDTH - 2) + 1;
+        obstacle[obstacleCount - 1].y = rand() % (MAP_HEIGHT - 2) + 1;
+        // 循环判断障碍物位置是否和蛇或食物的位置重叠，如果重叠则需要重新设置障碍物位置
+        for (int i = 0; i <= snake.length - 1; ++i) {
+            if (snake.snakeNode[i].x == obstacle[obstacleCount - 1].x && snake.snakeNode[i].y == obstacle[obstacleCount - 1].y) {
+                flag = 0;
+                break;
+            }
+        }
+        if (flag && food.x == obstacle[obstacleCount - 1].x && food.y == obstacle[obstacleCount - 1].y) {
+            flag = 0;
+        }
+        for (int i = 0; i <= MAX_OBSTACLE_NUM - 1; ++i) {
+            if (i != obstacleCount - 1 && obstacle[i].x == obstacle[obstacleCount - 1].x && obstacle[i].y == obstacle[obstacleCount - 1].y) {
+                flag = 0;
+                break;
+            }
+        }
+        if (flag) {
+            GotoXY(obstacle[obstacleCount - 1].x, obstacle[obstacleCount - 1].y);
+            printf("#");
+            obstacleCount--;
+        }
+    }
+}
+
+/**
+ * 判断是否重新生成障碍物
+ */
+int IsPrintfObstacle() {
+    time_t currentTimeStamp = time(NULL);
+    double timeDiff = difftime(currentTimeStamp, obstacleTimeStamp);
+    if (timeDiff > OBSTACLE_GENERATE_INTERVAL) {
+        obstacleTimeStamp = currentTimeStamp;
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * 清除障碍物
+ */
+void ClearObstacle() {
+    for (int i = 0; i < MAX_OBSTACLE_NUM; i++) {
+        GotoXY(obstacle[i].x, obstacle[i].y);
+        printf(" ");
+    }
+}
+
