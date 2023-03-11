@@ -9,13 +9,13 @@
  /**
   * 全局变量定义
   */
-Snake snake;                            // 定义蛇结构体变量
-struct Food food;                       // 定义食物结构体变量
-Obstacle obstacle[MAX_OBSTACLE_NUM];    // 定义障碍结构体数组变量
-char nowDirection = RIGHT;              // 当前蛇头方向
-char direction = RIGHT;                 // 预期蛇头方向
-// 在global.c中声明全局变量
-time_t obstacleTimeStamp;
+Snake snake;                                      // 定义蛇结构体变量
+struct Food food;                                       // 定义食物结构体变量
+Obstacle obstacle[MAX_OBSTACLE_NUM];                    // 定义障碍结构体数组变量
+char nowDirection = RIGHT;                              // 当前蛇头方向
+char direction = RIGHT;                                 // 预期蛇头方向
+time_t obstacleTimeStamp;                               // 生成上一次障碍物时间戳
+
 
 /**
  * 主菜单函数
@@ -33,6 +33,8 @@ int Menu() {
     GotoXY(43, 18);
     printf("3.关于");
     GotoXY(43, 20);
+    printf("4.排行榜");
+    GotoXY(43, 22);
     printf("其他任意键退出游戏");
     // 隐藏光标
     Hide();
@@ -50,6 +52,9 @@ int Menu() {
         break;
     case '3':
         result = 3;
+        break;
+    case '4':
+        result = 4;
         break;
     }
     system("cls");
@@ -317,6 +322,18 @@ int MoveSnake() {
         GotoXY(45, 16);
         printf("你输了！");
         GotoXY(45, 18);
+
+        // 保存当前成绩至文件中
+        struct GameRecord gameRecord;
+
+        time_t t = time(NULL);
+
+        struct tm* localTime = localtime(&t);
+        char formattedTime[80];
+        strftime(gameRecord.startTime, 80, "%Y-%m-%d %H:%M:%S", localTime);
+        gameRecord.score = snake.length - 3;
+        WriteGameRecord(gameRecord);
+
         printf("请按任意键返回主菜单");
         char c = _getch();
         system("cls");
@@ -457,6 +474,8 @@ void PrintObstacle() {
 
 /**
  * 判断是否重新生成障碍物
+ *
+ * @return int
  */
 int IsPrintfObstacle() {
     time_t currentTimeStamp = time(NULL);
@@ -478,3 +497,123 @@ void ClearObstacle() {
     }
 }
 
+/**
+ * 读得分记录
+ *
+ * @param: struct GameRecord 得分数组
+ * @param: int* 记录数量
+ */
+void ReadGameRecords(struct GameRecord records[], int* numRecords) {
+    FILE* fp;
+    fp = fopen("game_records.txt", "r");
+    if (fp == NULL) {
+        printf("Error opening game_records.txt\n");
+        return;
+    }
+
+    *numRecords = 0;
+    while (*numRecords < MAX_RECORDS && fscanf(fp, "%19[^\n] %d\n", &records[*numRecords].startTime, &records[*numRecords].score) == 2) {
+        (*numRecords)++;
+    }
+
+    fclose(fp);
+}
+
+/**
+ * 将得分记录写入文件
+ *
+ * @param struct GameRecord 游戏记录结构体
+ */
+void WriteGameRecord(struct GameRecord record) {
+    FILE* fp;
+    fp = fopen("game_records.txt", "a");
+    if (fp == NULL) {
+        printf("Error opening game_records.txt\n");
+        return;
+    }
+
+    fprintf(fp, "%s %d\n", record.startTime, record.score);
+    fclose(fp);
+}
+
+/**
+ * 比较排序
+ *
+ * @param: *a 记录1
+ * @param: *b 记录2
+ * @return: int
+ */
+int CompareGameRecords(const void* a, const void* b) {
+    struct GameRecord* recordA = (struct GameRecord*)a;
+    struct GameRecord* recordB = (struct GameRecord*)b;
+
+    if (recordA->score == recordB->score) {
+        return recordB->startTime - recordA->startTime;
+    }
+    else {
+        return recordB->score - recordA->score;
+    }
+}
+
+/**
+ * 显示游戏排行榜
+ */
+void DisplayGameRecords() {
+    struct GameRecord records[MAX_RECORDS];
+    int numRecords = 0;
+    system("cls");
+    ReadGameRecords(records, &numRecords);
+
+    qsort(records, numRecords, sizeof(struct GameRecord), CompareGameRecords);
+
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+    GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
+    int consoleWidth = consoleInfo.srWindow.Right - consoleInfo.srWindow.Left + 1;
+    int consoleHeight = consoleInfo.srWindow.Bottom - consoleInfo.srWindow.Top + 1;
+
+    const int RECORDS_PER_PAGE = 10;
+    int numPages = (numRecords + RECORDS_PER_PAGE - 1) / RECORDS_PER_PAGE;
+    int currentPage = 1;
+
+    while (1) {
+        system("cls");
+        printf("排行榜:\n");
+        printf("|===============================================|\n");
+        printf("|   排名   |   得分   |   开始时间              |\n");
+        printf("|===============================================|\n");
+        int startIndex = (currentPage - 1) * RECORDS_PER_PAGE;
+
+        int startY = (consoleHeight - 5) / 2 + 1; // 排行榜第一行的位置
+
+        for (int i = startIndex; i < startIndex + RECORDS_PER_PAGE && i < numRecords; i++) {
+            printf("|%10d|%10d|%25s|\n", i + 1, records[i].score, records[i].startTime);
+            if (i == startIndex) { // 第一次迭代，计算排行榜的实际位置
+                startY -= i % RECORDS_PER_PAGE; // 计算排行榜的实际位置
+            }
+        }
+        printf("|===============================================|\n");
+
+        int startX = (consoleWidth - 37) / 2;
+        GotoXY(startX, startY + 4);
+        printf("第 %d 页 / 共 %d 页\n", currentPage, numPages);
+
+        GotoXY(startX, startY + RECORDS_PER_PAGE + 6);
+        printf("按 [上箭头] 或 [下箭头] 翻页，按 [Esc] 返回主菜单");
+
+        int ch = _getch();
+        system("cls");
+        if (ch == 27) { // Esc
+            break;
+        }
+        else if (ch == 224) { // 非常规按键
+            ch = _getch();
+            if (ch == 72 && currentPage > 1) { // 上箭头
+                currentPage--;
+            }
+            else if (ch == 80 && currentPage < numPages) { // 下箭头
+                currentPage++;
+            }
+        }
+    }
+}

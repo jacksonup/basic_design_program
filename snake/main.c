@@ -2,13 +2,12 @@
 
 extern time_t obstacleTimeStamp;
 
-
 int main() {
-    srand((unsigned int)time(0));      // 生成随机数种子
+    srand((unsigned int)time(0));              // 生成随机数种子
     obstacleTimeStamp = time(NULL);
     int end = 1, result;
     while (end) {
-        result = Menu();                           // 显示主菜单，并根据用户选择菜单选项决定游戏的执行
+        result = Menu();                       // 显示主菜单，并根据用户选择菜单选项决定游戏的执行
         switch (result) {
         case 1:                                // 选择1表示，开始贪吃蛇游戏
             InitMap();                         // 初始化地图、蛇和食物
@@ -19,6 +18,9 @@ int main() {
             break;
         case 3:                                // 选择3表示，显示关于信息
             About();
+            break;
+        case 4:
+            DisplayGameRecords();
             break;
         case 0:                                // 选择4表示，表示结束游戏
             end = 0;
